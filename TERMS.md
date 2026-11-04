@@ -64,4 +64,4 @@ How the app handles your data is explained in the [Privacy Policy](PRIVACY.md).
 
 ## 12. Contact
 
-Questions about these terms: [github.com/CJXanderr/TaskTracker-/issues](https://github.com/CJXanderr/TaskTracker-/issues)
+Questions about these terms: [github.com/CJXanderr/TaskTrackerPlus/issues](https://github.com/CJXanderr/TaskTrackerPlus/issues)

@@ -55,7 +55,7 @@ Data is kept until it is deleted in the app, or until the community uninstalls T
 
 - **In the app:** you can edit or delete your own comments and the files on them. If you can contribute to a project, you can edit or delete the tasks you created and remove the files you uploaded to tasks. A project's managers can edit or delete any task in it, and delete the project.
 - **Ask your community:** for other content, ask the project's managers or your community's admins.
-- **Ask us:** open an issue at [github.com/CJXanderr/TaskTracker-/issues](https://github.com/CJXanderr/TaskTracker-/issues), saying which community and what you want changed or deleted. We will respond promptly and, with your community's admins or Root, make sure it is done. Issues on GitHub are public, so do not include personal details there. If you would rather not post publicly, use Root's channels below.
+- **Ask us:** open an issue at [github.com/CJXanderr/TaskTrackerPlus/issues](https://github.com/CJXanderr/TaskTrackerPlus/issues), saying which community and what you want changed or deleted. We will respond promptly and, with your community's admins or Root, make sure it is done. Issues on GitHub are public, so do not include personal details there. If you would rather not post publicly, use Root's channels below.
 - **Ask Root:** Root is the controller of this data. To use your privacy rights, such as access, correction or deletion, contact Root through its [support form](https://www.rootapp.com/support) or at support@rootapp.com with the subject "International Privacy Inquiry". You can delete your Root account at [rootapp.com/delete-account](https://www.rootapp.com/delete-account). Privacy requests sent to us are forwarded to Root, as Root's Developer Terms require.
 
 ## Security
@@ -72,4 +72,4 @@ We will post any changes on this page and update the date at the top. If a chang
 
 ## Contact
 
-Questions about this policy: [github.com/CJXanderr/TaskTracker-/issues](https://github.com/CJXanderr/TaskTracker-/issues)
+Questions about this policy: [github.com/CJXanderr/TaskTrackerPlus/issues](https://github.com/CJXanderr/TaskTrackerPlus/issues)
