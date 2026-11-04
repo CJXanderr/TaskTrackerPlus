@@ -1,0 +1,33 @@
+{
+  "name": "@tasktrackerplus/app",
+  "description": "Task Tracker+ — Root's Task Tracker with file attachments and downloads",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@rootsdk/client-app": "^0.21.3",
+    "@rootsdk/client-app-ui": "^0.21.3",
+    "@rootsdk/server-app": "^0.21.3",
+    "@tasktrackerplus/gen-client": "file:./networking/gen/client",
+    "@tasktrackerplus/gen-server": "file:./networking/gen/server",
+    "@tasktrackerplus/gen-shared": "file:./networking/gen/shared"
+  },
+  "devDependencies": {
+    "@rootsdk/dev-tools": "^0.21.3",
+    "@types/node": "^22.10.2",
+    "typescript": "^5.8.2"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "clean": "node clean.js"
+  },
+  "workspaces": {
+    "packages": [
+      "./networking",
+      "./server",
+      "./client"
+    ]
+  }
+}

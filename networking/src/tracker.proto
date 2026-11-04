@@ -1,0 +1,460 @@
+syntax = "proto3";
+
+import "rootsdk/types.proto";
+
+// =============================================================================
+// Task Tracker+ — networking contract
+//
+// Mirrors Root's Task Tracker (projects, phases, priorities, tags, assignees,
+// comments + history, per-project access levels, favorites, archive) and adds:
+//   * file attachments on tasks and on comments (any file type)
+//   * downloads for every posted image, audio, video and file
+//
+// Timestamps are Unix epoch milliseconds stored as doubles (exact in JS).
+// Due dates are calendar dates ("YYYY-MM-DD"), empty string = none.
+// =============================================================================
+
+// --- Enums -------------------------------------------------------------------
+
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_BACKLOG = 1;
+  TASK_STATUS_PLANNED = 2;
+  TASK_STATUS_IN_PROGRESS = 3;
+  TASK_STATUS_IN_REVIEW = 4;
+  TASK_STATUS_DONE = 5;
+  TASK_STATUS_CANCELLED = 6;
+}
+
+enum TaskPriority {
+  TASK_PRIORITY_UNSPECIFIED = 0;
+  TASK_PRIORITY_LOW = 1;
+  TASK_PRIORITY_MID = 2;
+  TASK_PRIORITY_HIGH = 3;
+}
+
+// Project access levels. Ordered so a higher number includes the lower ones.
+enum AccessLevel {
+  ACCESS_LEVEL_NONE = 0;
+  ACCESS_LEVEL_VIEW = 1;
+  ACCESS_LEVEL_CONTRIBUTE = 2;
+  ACCESS_LEVEL_MANAGE = 3;
+}
+
+enum AssigneeKind {
+  ASSIGNEE_KIND_NONE = 0;
+  ASSIGNEE_KIND_USER = 1;
+  ASSIGNEE_KIND_ROLE = 2;
+}
+
+enum AttachmentKind {
+  ATTACHMENT_KIND_UNSPECIFIED = 0;
+  ATTACHMENT_KIND_FILE = 1;
+  ATTACHMENT_KIND_IMAGE = 2;
+  ATTACHMENT_KIND_VIDEO = 3;
+  ATTACHMENT_KIND_AUDIO = 4;
+}
+
+// Where freshly uploaded files go.
+enum AttachTarget {
+  ATTACH_TARGET_UNSPECIFIED = 0;
+  // Attached to an existing task straight away.
+  ATTACH_TARGET_TASK = 1;
+  // Held as a draft by the uploader until a new task or comment claims it.
+  ATTACH_TARGET_DRAFT = 2;
+}
+
+enum ActivityKind {
+  ACTIVITY_KIND_UNSPECIFIED = 0;
+  ACTIVITY_KIND_CREATED = 1;
+  ACTIVITY_KIND_STATUS = 2;
+  ACTIVITY_KIND_PRIORITY = 3;
+  ACTIVITY_KIND_ASSIGNEE = 4;
+  ACTIVITY_KIND_TAG_ADDED = 5;
+  ACTIVITY_KIND_TAG_REMOVED = 6;
+  ACTIVITY_KIND_DUE_DATE = 7;
+  ACTIVITY_KIND_ATTACHMENT_ADDED = 8;
+  ACTIVITY_KIND_ATTACHMENT_REMOVED = 9;
+}
+
+// Error codes carried by RootServerException (positive values only).
+enum TrackerError {
+  TRACKER_ERROR_UNSPECIFIED = 0;
+  TRACKER_ERROR_NOT_FOUND = 1;
+  TRACKER_ERROR_FORBIDDEN = 2;
+  TRACKER_ERROR_INVALID = 3;
+  TRACKER_ERROR_ARCHIVED = 4;
+  TRACKER_ERROR_LIMIT_REACHED = 5;
+  TRACKER_ERROR_UPLOAD_FAILED = 6;
+}
+
+// --- Shared types --------------------------------------------------------------
+
+message Assignee {
+  AssigneeKind kind = 1;
+  string id = 2; // user id or community role id
+}
+
+message MemberSelection {
+  repeated string user_ids = 1;
+  repeated string role_ids = 2;
+}
+
+message ProjectPermissions {
+  MemberSelection view = 1;
+  MemberSelection contribute = 2;
+  MemberSelection manage = 3;
+}
+
+message PhaseCounts {
+  uint32 backlog = 1;
+  uint32 planned = 2;
+  uint32 in_progress = 3;
+  uint32 in_review = 4;
+  uint32 done = 5;
+  uint32 cancelled = 6;
+}
+
+message ProjectSummary {
+  uint32 id = 1;
+  string name = 2;
+  string description = 3;
+  string identifier = 4;
+  string image_uri = 5;
+  bool archived = 6;
+  string created_by = 7;
+  double created_at = 8;
+  double updated_at = 9;
+  PhaseCounts counts = 10;
+  bool favorite = 11;
+  AccessLevel my_access = 12;
+}
+
+message Tag {
+  uint32 id = 1;
+  string name = 2;
+  string color = 3;
+}
+
+message Role {
+  string id = 1;
+  string name = 2;
+  string color = 3;
+}
+
+message Attachment {
+  uint32 id = 1;
+  uint32 project_id = 2;
+  uint32 task_id = 3;    // 0 while it is still a draft for a new task
+  uint32 comment_id = 4; // 0 when attached to the task itself
+  string asset_uri = 5;
+  string file_name = 6;
+  string mime_type = 7;
+  double size = 8;       // bytes, 0 when unknown
+  AttachmentKind kind = 9;
+  string uploaded_by = 10;
+  double created_at = 11;
+}
+
+message TaskSummary {
+  uint32 id = 1;
+  uint32 project_id = 2;
+  uint32 number = 3;
+  string name = 4;
+  TaskStatus status = 5;
+  TaskPriority priority = 6;
+  Assignee assignee = 7;
+  repeated uint32 tag_ids = 8;
+  string due_date = 9;
+  string created_by = 10;
+  double created_at = 11;
+  double updated_at = 12;
+  uint32 comment_count = 13;
+  uint32 attachment_count = 14; // task + comment attachments
+  string project_identifier = 15;
+  string project_name = 16;
+}
+
+message Comment {
+  uint32 id = 1;
+  uint32 task_id = 2;
+  string author_id = 3;
+  string body = 4;
+  double created_at = 5;
+  double edited_at = 6; // 0 when never edited
+  repeated Attachment attachments = 7;
+}
+
+message Activity {
+  uint32 id = 1;
+  uint32 task_id = 2;
+  string actor_id = 3;
+  ActivityKind kind = 4;
+  string from_value = 5;
+  string to_value = 6;
+  double created_at = 7;
+}
+
+message TaskDetail {
+  TaskSummary summary = 1;
+  string description = 2; // rich text (HTML)
+  repeated Attachment attachments = 3; // attached to the task itself
+  repeated Comment comments = 4;
+  repeated Activity activity = 5;
+}
+
+// --- Requests / responses ------------------------------------------------------
+
+message GetMeRequest {}
+message GetMeResponse {
+  string user_id = 1;
+  bool is_admin = 2;
+  bool can_create_projects = 3;
+  bool can_manage_tags = 4;
+}
+
+message ListRolesRequest {}
+message ListRolesResponse {
+  repeated Role roles = 1;
+}
+
+message ListProjectsRequest {
+  bool archived = 1;
+}
+message ListProjectsResponse {
+  repeated ProjectSummary projects = 1;
+}
+
+message GetProjectRequest {
+  uint32 project_id = 1;
+}
+message GetProjectResponse {
+  ProjectSummary project = 1;
+  ProjectPermissions permissions = 2; // only filled for managers
+}
+
+message CreateProjectRequest {
+  string name = 1;
+  string description = 2;
+  string identifier = 3;
+  string image_token = 4;
+  ProjectPermissions permissions = 5;
+}
+message CreateProjectResponse {
+  ProjectSummary project = 1;
+}
+
+message UpdateProjectRequest {
+  uint32 project_id = 1;
+  string name = 2;
+  string description = 3;
+  string identifier = 4;
+  string image_token = 5; // new image upload token, empty = keep
+  bool remove_image = 6;
+  ProjectPermissions permissions = 7;
+}
+message UpdateProjectResponse {
+  ProjectSummary project = 1;
+}
+
+message SetProjectArchivedRequest {
+  uint32 project_id = 1;
+  bool archived = 2;
+}
+message SetProjectArchivedResponse {}
+
+message DeleteProjectRequest {
+  uint32 project_id = 1;
+}
+message DeleteProjectResponse {}
+
+message SetFavoriteRequest {
+  uint32 project_id = 1;
+  bool favorite = 2;
+}
+message SetFavoriteResponse {}
+
+message ListTasksRequest {
+  uint32 project_id = 1;
+}
+message ListTasksResponse {
+  repeated TaskSummary tasks = 1;
+}
+
+message ListMyTasksRequest {}
+message ListMyTasksResponse {
+  repeated TaskSummary tasks = 1;
+}
+
+message GetTaskRequest {
+  uint32 task_id = 1;
+}
+message GetTaskResponse {
+  TaskDetail task = 1;
+  ProjectSummary project = 2;
+}
+
+message CreateTaskRequest {
+  uint32 project_id = 1;
+  string name = 2;
+  string description = 3;
+  TaskStatus status = 4;
+  TaskPriority priority = 5;
+  Assignee assignee = 6;
+  repeated uint32 tag_ids = 7;
+  string due_date = 8;
+  repeated uint32 attachment_ids = 9; // draft attachments to claim
+}
+message CreateTaskResponse {
+  TaskSummary task = 1;
+}
+
+message UpdateTaskRequest {
+  uint32 task_id = 1;
+  optional string name = 2;
+  optional string description = 3;
+  optional TaskStatus status = 4;
+  optional TaskPriority priority = 5;
+  Assignee assignee = 6;        // set when changing the assignee
+  bool clear_assignee = 7;
+  optional string due_date = 8; // "" clears the due date
+  bool set_tags = 9;
+  repeated uint32 tag_ids = 10;
+}
+message UpdateTaskResponse {
+  TaskSummary task = 1;
+}
+
+message DeleteTaskRequest {
+  uint32 task_id = 1;
+}
+message DeleteTaskResponse {}
+
+message UploadAttachmentsRequest {
+  uint32 project_id = 1;
+  uint32 task_id = 2; // required for ATTACH_TARGET_TASK, optional for drafts
+  repeated string tokens = 3;
+  AttachTarget target = 4;
+}
+message UploadAttachmentsResponse {
+  repeated Attachment attachments = 1;
+}
+
+message DeleteAttachmentRequest {
+  uint32 attachment_id = 1;
+}
+message DeleteAttachmentResponse {}
+
+message CreateCommentRequest {
+  uint32 task_id = 1;
+  string body = 2;
+  repeated uint32 attachment_ids = 3; // draft attachments to claim
+}
+message CreateCommentResponse {
+  Comment comment = 1;
+}
+
+message UpdateCommentRequest {
+  uint32 comment_id = 1;
+  string body = 2;
+  repeated uint32 add_attachment_ids = 3;
+  repeated uint32 remove_attachment_ids = 4;
+}
+message UpdateCommentResponse {
+  Comment comment = 1;
+}
+
+message DeleteCommentRequest {
+  uint32 comment_id = 1;
+}
+message DeleteCommentResponse {}
+
+message ListTagsRequest {}
+message ListTagsResponse {
+  repeated Tag tags = 1;
+}
+
+message CreateTagRequest {
+  string name = 1;
+  string color = 2;
+}
+message CreateTagResponse {
+  Tag tag = 1;
+}
+
+message UpdateTagRequest {
+  uint32 tag_id = 1;
+  string name = 2;
+  string color = 3;
+}
+message UpdateTagResponse {
+  Tag tag = 1;
+}
+
+message DeleteTagRequest {
+  uint32 tag_id = 1;
+}
+message DeleteTagResponse {}
+
+// --- Broadcast events ------------------------------------------------------------
+
+// Sent to everyone; carries only the id. Clients re-fetch the project (the
+// server re-checks access), so nothing leaks to members without access.
+message ProjectChangedEvent {
+  uint32 project_id = 1;
+  bool deleted = 2;
+}
+
+// Sent only to connected members who can view the project.
+message TaskChangedEvent {
+  uint32 project_id = 1;
+  uint32 task_id = 2;
+  bool deleted = 3;
+  TaskSummary task = 4;      // absent when deleted
+  PhaseCounts counts = 5;    // fresh project progress
+  double project_updated_at = 6;
+}
+
+message TagsChangedEvent {}
+
+// Admin / project-creator settings changed: clients re-fetch GetMe + projects.
+message AccessChangedEvent {}
+
+// --- Service ---------------------------------------------------------------------
+
+service TrackerService {
+  rpc GetMe(GetMeRequest) returns (GetMeResponse);
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse);
+
+  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+  rpc GetProject(GetProjectRequest) returns (GetProjectResponse);
+  rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse);
+  rpc UpdateProject(UpdateProjectRequest) returns (UpdateProjectResponse);
+  rpc SetProjectArchived(SetProjectArchivedRequest) returns (SetProjectArchivedResponse);
+  rpc DeleteProject(DeleteProjectRequest) returns (DeleteProjectResponse);
+  rpc SetFavorite(SetFavoriteRequest) returns (SetFavoriteResponse);
+
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc ListMyTasks(ListMyTasksRequest) returns (ListMyTasksResponse);
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+  rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse);
+  rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse);
+
+  rpc UploadAttachments(UploadAttachmentsRequest) returns (UploadAttachmentsResponse);
+  rpc DeleteAttachment(DeleteAttachmentRequest) returns (DeleteAttachmentResponse);
+
+  rpc CreateComment(CreateCommentRequest) returns (CreateCommentResponse);
+  rpc UpdateComment(UpdateCommentRequest) returns (UpdateCommentResponse);
+  rpc DeleteComment(DeleteCommentRequest) returns (DeleteCommentResponse);
+
+  rpc ListTags(ListTagsRequest) returns (ListTagsResponse);
+  rpc CreateTag(CreateTagRequest) returns (CreateTagResponse);
+  rpc UpdateTag(UpdateTagRequest) returns (UpdateTagResponse);
+  rpc DeleteTag(DeleteTagRequest) returns (DeleteTagResponse);
+
+  rpc BroadcastProjectChanged(ProjectChangedEvent) returns (rootsdk.Void);
+  rpc BroadcastTaskChanged(TaskChangedEvent) returns (rootsdk.Void);
+  rpc BroadcastTagsChanged(TagsChangedEvent) returns (rootsdk.Void);
+  rpc BroadcastAccessChanged(AccessChangedEvent) returns (rootsdk.Void);
+}

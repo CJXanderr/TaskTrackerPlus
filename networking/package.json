@@ -1,0 +1,7 @@
+{
+  "name": "@tasktrackerplus/networking",
+  "private": true,
+  "scripts": {
+    "build": "rootsdk build proto"
+  }
+}
